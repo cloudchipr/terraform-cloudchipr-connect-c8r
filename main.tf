@@ -1,3 +1,18 @@
+locals {
+  request_type       = split(",", var.data)[10]
+  response_url       = var.C8R_API_ENDPOINT
+  service_token      = aws_lambda_function.cloudchipr_app_callback_lambda_function.arn
+  role_arn           = aws_iam_role.cloudchipr_stack_iam_role.arn
+  account_id         = data.aws_caller_identity.current.account_id
+  c8r_unique_id      = split(",", var.data)[2]
+  confirmation_token = split(",", var.data)[3]
+  report_name        = split(",", var.data)[8]
+  bucket_name        = split(",", var.data)[9]
+  execution_type     = split(",", var.data)[10]
+  iam_role           = join("", ["arn:aws:iam::${local.account_id}:role/", split(",", var.data)[5]])
+  unique_request_id  = split(",", var.data)[11]
+}
+
 data "aws_region" "current" {}
 
 data "aws_caller_identity" "current" {}
@@ -727,7 +742,7 @@ resource "aws_lambda_function" "cloudchipr_app_callback_lambda_function" {
 
   function_name = split(",", var.data)[7]
   description   = "Report Cloudchipr Role ARN to Cloudchipr"
-  filename      = "${path.module}/lambda/lambda_function.zip"
+  filename      = data.archive_file.lambda.output_path
   handler       = "index.handler"
   role          = aws_iam_role.basic_lambda_execution_role.arn
   runtime       = "nodejs16.x"
@@ -744,18 +759,19 @@ resource "aws_lambda_invocation" "lambda_execution_role_invoke" {
   function_name = aws_lambda_function.cloudchipr_app_callback_lambda_function.function_name
 
   input = jsonencode({
-    "RequestType" : "${split(",", var.data)[10]}",
-    "ResponseURL" : "${var.C8R_API_ENDPOINT}"
+    "RequestType" : local.request_type,
+    "ResponseURL" : local.response_url,
     "ResourceProperties" : {
-      "ServiceToken" : "${aws_lambda_function.cloudchipr_app_callback_lambda_function.arn}",
-      "RoleArn" : "${aws_iam_role.cloudchipr_stack_iam_role.arn}",
-      "AccountId" : "${data.aws_caller_identity.current.account_id}",
-      "C8RUniqueId" : "${split(",", var.data)[2]}",
-      "ConfirmationToken" : "${split(",", var.data)[3]}",
-      "ReportName" : "${split(",", var.data)[8]}",
-      "BucketName" : "${split(",", var.data)[9]}",
-      "ExecutionType" : "${split(",", var.data)[10]}",
-      "IAMRole" : "${join("", ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/", split(",", var.data)[5]])}",
-      "UniqueRequestId" : "${split(",", var.data)[11]}"
-  } })
+      "ServiceToken" : local.service_token,
+      "RoleArn" : local.role_arn,
+      "AccountId" : local.account_id,
+      "C8RUniqueId" : local.c8r_unique_id,
+      "ConfirmationToken" : local.confirmation_token,
+      "ReportName" : local.report_name,
+      "BucketName" : local.bucket_name,
+      "ExecutionType" : local.execution_type,
+      "IAMRole" : local.iam_role,
+      "UniqueRequestId" : local.unique_request_id
+    }
+  })
 }
