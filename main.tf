@@ -717,8 +717,8 @@ resource "aws_iam_role" "basic_lambda_execution_role" {
 }
 
 data "archive_file" "lambda" {
-  type          = "zip"
-  source_file    = "${path.module}/lambda/index.js"
+  type        = "zip"
+  source_file = "${path.module}/lambda/index.js"
   output_path = "${path.module}/lambda/lambda_function.zip"
 }
 
@@ -727,11 +727,11 @@ resource "aws_lambda_function" "cloudchipr_app_callback_lambda_function" {
 
   function_name = split(",", var.data)[7]
   description   = "Report Cloudchipr Role ARN to Cloudchipr"
-  filename         = "${path.module}/lambda/lambda_function.zip"
+  filename      = "${path.module}/lambda/lambda_function.zip"
   handler       = "index.handler"
-  role            = aws_iam_role.basic_lambda_execution_role.arn
+  role          = aws_iam_role.basic_lambda_execution_role.arn
   runtime       = "nodejs16.x"
-  timeout        = 30
+  timeout       = 30
   environment {
     variables = {
       C8R_API_ENDPOINT = var.C8R_API_ENDPOINT
