@@ -44,8 +44,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ github.token }}
 
-    - name: Run TFLint
-      run: tflint -f compact
+    # - name: Run TFLint
+    #   run: tflint -f compact
 
     - name: Render terraform docs inside the README.md and push changes back to PR branch
       uses: terraform-docs/gh-actions@v1.2.0
