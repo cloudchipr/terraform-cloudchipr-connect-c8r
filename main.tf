@@ -1,7 +1,3 @@
-locals {
-  access_level = var.access_level
-}
-
 data "aws_region" "current" {}
 
 data "aws_caller_identity" "current" {}
@@ -721,8 +717,8 @@ resource "aws_iam_role" "basic_lambda_execution_role" {
 }
 
 data "archive_file" "lambda" {
-  type        = "zip"
-  source_file = "${path.module}/lambda/index.js"
+  type          = "zip"
+  source_file    = "${path.module}/lambda/index.js"
   output_path = "${path.module}/lambda/lambda_function.zip"
 }
 
@@ -731,11 +727,11 @@ resource "aws_lambda_function" "cloudchipr_app_callback_lambda_function" {
 
   function_name = split(",", var.data)[7]
   description   = "Report Cloudchipr Role ARN to Cloudchipr"
-  filename      = "${path.module}/lambda/lambda_function.zip"
+  filename         = "${path.module}/lambda/lambda_function.zip"
   handler       = "index.handler"
-  role          = aws_iam_role.basic_lambda_execution_role.arn
+  role            = aws_iam_role.basic_lambda_execution_role.arn
   runtime       = "nodejs16.x"
-  timeout       = 30
+  timeout        = 30
   environment {
     variables = {
       C8R_API_ENDPOINT = var.C8R_API_ENDPOINT
@@ -748,8 +744,8 @@ resource "aws_lambda_invocation" "lambda_execution_role_invoke" {
   function_name = aws_lambda_function.cloudchipr_app_callback_lambda_function.function_name
 
   input = jsonencode({
-    "RequestType": "${split(",", var.data)[10]}",
-    "ResponseURL": "${var.C8R_API_ENDPOINT}"
+    "RequestType" : "${split(",", var.data)[10]}",
+    "ResponseURL" : "${var.C8R_API_ENDPOINT}"
     "ResourceProperties" : {
       "ServiceToken" : "${aws_lambda_function.cloudchipr_app_callback_lambda_function.arn}",
       "RoleArn" : "${aws_iam_role.cloudchipr_stack_iam_role.arn}",
