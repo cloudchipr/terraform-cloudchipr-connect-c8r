@@ -16,8 +16,5 @@ jobs:
   terraform-checks:
     name: Check terraform configurations
     uses: cloudchipr/private-github-actions/.github/workflows/terraform-connect.yaml@terraform-connect
-    with:
-      gh_repo: ${{ github.repository }}
-      gh_tag: ${{ github.ref_name }}
     secrets:
       gh_token: ${{ secrets.GH_BOT_PAT }}
