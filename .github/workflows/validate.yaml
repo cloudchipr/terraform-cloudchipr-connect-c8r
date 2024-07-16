@@ -4,13 +4,13 @@ permissions:
   contents: read
   id-token: write
 
-on: 
+on:
   pull_request:
     branches:
       - main
     secrets:
       gh_token:
-        required: true  
+        required: true
 
 jobs:
   terraform-checks:
