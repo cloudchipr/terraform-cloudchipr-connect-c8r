@@ -36,6 +36,8 @@ Cloudchipr License. See [LICENSE](https://github.com/cloudchipr/api-bff/terrafor
 
 | Name | Version |
 |------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.9.1 |
+| <a name="requirement_archive"></a> [archive](#requirement\_archive) | ~> 2.4.2 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 4.0 |
 
 ## Providers
