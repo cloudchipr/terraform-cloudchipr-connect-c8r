@@ -1,9 +1,23 @@
+name: Checking terraform configurations
+
+permissions:
+  contents: read
+  id-token: write
+
+on: 
+  pull_request:
+    branches:
+      - main
+    secrets:
+      gh_token:
+        required: true  
+
 jobs:
   terraform-checks:
     name: Check terraform configurations
-    uses: cloudchipr/private-github-actions/.github/workflows/terraform-connect.yaml@main
-    # with:
-    #   gh_repo: ${{ github.repository }}
-    #   gh_tag: ${{ github.ref_name }}
-    # secrets:
-    #   gh_token: ${{ secrets.GH_BOT_PAT }}
+    uses: cloudchipr/private-github-actions/.github/workflows/terraform-connect.yaml@terraform-connect
+    with:
+      gh_repo: ${{ github.repository }}
+      gh_tag: ${{ github.ref_name }}
+    secrets:
+      gh_token: ${{ secrets.GH_BOT_PAT }}
