@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - create-module
     secrets:
       gh_token:
         required: true  
