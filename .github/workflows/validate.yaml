@@ -10,8 +10,52 @@ on:
       - main
 
 jobs:
-  terraform-checks:
-    name: Check terraform configurations
-    uses: cloudchipr/private-github-actions/.github/workflows/terraform-connect.yaml@terraform-connect
-    secrets:
-      gh_token: ${{ secrets.GH_BOT_PAT }}
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ github.head_ref }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.9.1
+
+    - name: Run a Terraform init
+      run: terraform init
+
+    - name: Run a Terraform validate
+      run: terraform validate
+
+    - name: Run a Terraform fmt
+      run: terraform fmt
+
+    - uses: terraform-linters/setup-tflint@v4
+      name: Setup TFLint
+      with:
+        tflint_version: v0.52.0
+
+    - name: Show version
+      run: tflint --version
+
+    - name: Init TFLint
+      run: tflint --init
+      # env:
+      #   GITHUB_TOKEN: ${{ secrets.gh_token }}
+
+    - name: Run TFLint
+      run: tflint -f compact
+      continue-on-error: true
+
+    - name: Render terraform docs inside the README.md and push changes back to PR branch
+      uses: terraform-docs/gh-actions@v1.2.0
+      with:
+        output-file: README.md
+        output-method: inject
+        git-push: "true"
+
+
