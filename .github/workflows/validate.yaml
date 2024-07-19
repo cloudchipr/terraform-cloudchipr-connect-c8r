@@ -1,4 +1,4 @@
-name: Checking terraform configurations
+name: Checking terraform configurations and generating documentation
 
 permissions:
   contents: write
