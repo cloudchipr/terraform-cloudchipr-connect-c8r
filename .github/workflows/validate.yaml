@@ -14,8 +14,8 @@ on:
 
 jobs:
   terraform-checks:
-    - name: Check terraform configurations
-      uses: cloudchipr/private-github-actions/.github/workflows/terraform-connect.yaml@terraform-connect
-      secrets:
-        gh_token: ${{ secrets.GH_BOT_PAT }}
+    name: Check terraform configurations
+    uses: cloudchipr/private-github-actions/.github/workflows/terraform-connect.yaml@terraform-connect
+    secrets:
+      gh_token: ${{ secrets.GH_BOT_PAT }}
 
