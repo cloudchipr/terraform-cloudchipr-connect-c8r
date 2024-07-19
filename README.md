@@ -77,7 +77,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_C8R_API_ENDPOINT"></a> [C8R\_API\_ENDPOINT](#input\_C8R\_API\_ENDPOINT) | API Endpoint used to verify account setup process. | `string` | `"https://api-bff-staging.cloudchipr.io/providers/aws/account-attempts/"` | no |
+| <a name="input_C8R_API_ENDPOINT"></a> [C8R\_API\_ENDPOINT](#input\_C8R\_API\_ENDPOINT) | API Endpoint used to verify account setup process. | `string` | `"https://api-bff.cloudchipr.io/providers/aws/account-attempts/"` | no |
 | <a name="input_access_level"></a> [access\_level](#input\_access\_level) | Access level user wants to provide to Cloudchipr. | `string` | `"read_write"` | no |
 | <a name="input_data"></a> [data](#input\_data) | Takes as input the source Account ID and Unique Key as External ID for cross-account trust relationship | `string` | n/a | yes |
 
