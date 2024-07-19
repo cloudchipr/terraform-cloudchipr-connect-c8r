@@ -8,7 +8,7 @@ This module is designed to connect your AWS Organization/Account to Cloudchipr. 
 
 ### Read and Write Access
 ```hcl
-module "connect-c8r" {
+module "cloudchipr" {
     source  = "cloudchipr/connect-c8r/cloudchipr"
     version = "1.0.0"
 
@@ -19,7 +19,7 @@ module "connect-c8r" {
 
 ### Read Only Access
 ```hcl
-module "connect-c8r" {
+module "cloudchipr" {
     source  = "cloudchipr/connect-c8r/cloudchipr"
     version = "1.0.0"
 
