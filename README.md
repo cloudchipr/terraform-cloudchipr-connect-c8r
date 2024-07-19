@@ -27,7 +27,7 @@ module "cloudchipr" {
 #### The data field information is available at app.cloudchipr.com. Press on `Add Account` from the `AWS Live Usage and Management` page and select `Terraform`.
 
 ## License
-Cloudchipr License. See [LICENSE](https://github.com/cloudchipr/api-bff/terraform/LICENSE) for more information.  
+Cloudchipr License. See [LICENSE](./LICENSE) for more information.
 
 ## Documentation
 

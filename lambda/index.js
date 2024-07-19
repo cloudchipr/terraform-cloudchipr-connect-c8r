@@ -2,7 +2,12 @@
 
 const https = require("https"),
   urlUtil = require("url"),
-  requestMethodMap = { CREATE: "patch", Create: "patch", Update: "patch", Delete: "delete" },
+  requestMethodMap = {
+    CREATE: "patch",
+    Create: "patch",
+    Update: "patch",
+    Delete: "delete",
+  },
   AWS = require("aws-sdk");
 class ResponseError extends Error {
   constructor(e) {
@@ -10,7 +15,7 @@ class ResponseError extends Error {
       "The HTTP response failed with status code " +
         e.statusCode +
         ": " +
-        e.statusMessage
+        e.statusMessage,
     ),
       (this.result = e);
   }
@@ -24,7 +29,7 @@ const send = (e, t) =>
       }
       (r.port = 443),
         console.debug(
-          "send: opening request to host=" + r.hostname + " path=" + r.path
+          "send: opening request to host=" + r.hostname + " path=" + r.path,
         );
       const n = https.request(r, (e) => {
         let t = Buffer.from([]);
@@ -36,7 +41,7 @@ const send = (e, t) =>
               "send: finished receiving response statusCode=" +
                 e.statusCode +
                 ": " +
-                e.statusMessage
+                e.statusMessage,
             );
             const r = {
               body: t.length > 0 ? t.toString("utf8") : null,
@@ -72,139 +77,147 @@ const send = (e, t) =>
         method: "PUT",
         headers: { "content-type": "", "content-length": s.length },
       },
-      s
+      s,
     );
   },
-  createCostUsageReport = async (bucketName, reportName, iamRole, accountId) => {
-      const costUsageReport = new AWS.CUR();
-      const prefix = 'reports/';
+  createCostUsageReport = async (
+    bucketName,
+    reportName,
+    iamRole,
+    accountId,
+  ) => {
+    const costUsageReport = new AWS.CUR();
+    const prefix = "reports/";
 
-      // Checking if report exists
-        const describeReportsParams = {};
-        const reportDefinitions = [];
-        let response = await costUsageReport.describeReportDefinitions(describeReportsParams).promise();
+    // Checking if report exists
+    const describeReportsParams = {};
+    const reportDefinitions = [];
+    let response = await costUsageReport
+      .describeReportDefinitions(describeReportsParams)
+      .promise();
 
-        reportDefinitions.push(...response.ReportDefinitions);
+    reportDefinitions.push(...response.ReportDefinitions);
 
-        while (response.NextToken) {
-            params.NextToken = response.NextToken;
+    while (response.NextToken) {
+      params.NextToken = response.NextToken;
 
-            response = await costUsageReport.describeReportDefinitions(describeReportsParams).promise();
-            reportDefinitions.push(...response.ReportDefinitions);
-        }
+      response = await costUsageReport
+        .describeReportDefinitions(describeReportsParams)
+        .promise();
+      reportDefinitions.push(...response.ReportDefinitions);
+    }
 
-        const reportDefinition = reportDefinitions.find(rd => rd.ReportName === reportName);
-        if (reportDefinition) {
-            console.log(`The report definition '${reportName}' exists.`);
-            return true
-        }
+    const reportDefinition = reportDefinitions.find(
+      (rd) => rd.ReportName === reportName,
+    );
+    if (reportDefinition) {
+      console.log(`The report definition '${reportName}' exists.`);
+      return true;
+    }
 
-      const reportParams = {
-          ReportDefinition: {
-              AdditionalSchemaElements: [
-                  'RESOURCES'
-              ],
-              S3Bucket: bucketName,
-              S3Prefix: prefix,
-              S3Region: process.env.AWS_REGION,
-              TimeUnit: 'DAILY',
-              Format: 'textORcsv',
-              Compression: 'GZIP',
-              ReportName: reportName,
-              ReportVersioning: 'OVERWRITE_REPORT'
-          }
-      };
+    const reportParams = {
+      ReportDefinition: {
+        AdditionalSchemaElements: ["RESOURCES"],
+        S3Bucket: bucketName,
+        S3Prefix: prefix,
+        S3Region: process.env.AWS_REGION,
+        TimeUnit: "DAILY",
+        Format: "textORcsv",
+        Compression: "GZIP",
+        ReportName: reportName,
+        ReportVersioning: "OVERWRITE_REPORT",
+      },
+    };
 
-      console.log(reportParams)
+    console.log(reportParams);
 
-      try {
-          await createBucket(bucketName, iamRole, accountId)
-          const result = await costUsageReport.putReportDefinition(reportParams).promise();
-          console.log("cost and usage create result: " + result);
-      } catch (err) {
-          console.log("Failed to create cost and usage report: " + err);
-      }
+    try {
+      await createBucket(bucketName, iamRole, accountId);
+      const result = await costUsageReport
+        .putReportDefinition(reportParams)
+        .promise();
+      console.log("cost and usage create result: " + result);
+    } catch (err) {
+      console.log("Failed to create cost and usage report: " + err);
+    }
   },
   createBucket = async (bucketName, iamRole, accountId) => {
-      const s3 = new AWS.S3();
+    const s3 = new AWS.S3();
 
-      const createBucketParams = {
-          Bucket: bucketName
+    const createBucketParams = {
+      Bucket: bucketName,
+    };
+
+    const policy = {
+      Version: "2008-10-17",
+      Id: "Policy1335892530063",
+      Statement: [
+        {
+          Sid: "Stmt1335892150622",
+          Effect: "Allow",
+          Principal: {
+            Service: "billingreports.amazonaws.com",
+          },
+          Action: ["s3:GetBucketAcl", "s3:GetBucketPolicy"],
+          Resource: "arn:aws:s3:::" + bucketName,
+          Condition: {
+            StringEquals: {
+              "aws:SourceArn":
+                "arn:aws:cur:us-east-1:" + accountId + ":definition/*",
+              "aws:SourceAccount": accountId,
+            },
+          },
+        },
+        {
+          Sid: "Stmt1335892526596",
+          Effect: "Allow",
+          Principal: {
+            Service: "billingreports.amazonaws.com",
+          },
+          Action: ["s3:PutObject"],
+          Resource: "arn:aws:s3:::" + bucketName + "/*",
+          Condition: {
+            StringEquals: {
+              "aws:SourceArn":
+                "arn:aws:cur:us-east-1:" + accountId + ":definition/*",
+              "aws:SourceAccount": accountId,
+            },
+          },
+        },
+        {
+          Sid: "AllowRoleAccessToBucket",
+          Effect: "Allow",
+          Principal: {
+            AWS: iamRole,
+          },
+          Action: "s3:GetObject",
+          Resource: "arn:aws:s3:::" + bucketName + "/*",
+        },
+      ],
+    };
+
+    const policyParams = {
+      Bucket: bucketName,
+      Policy: JSON.stringify(policy),
+    };
+
+    if (process.env.AWS_REGION !== "us-east-1") {
+      createBucketParams.CreateBucketConfiguration = {
+        LocationConstraint: process.env.AWS_REGION,
       };
+    }
 
-      const policy = {
-          Version: '2008-10-17',
-          Id: 'Policy1335892530063',
-          Statement: [
-              {
-                  Sid: 'Stmt1335892150622',
-                  Effect: 'Allow',
-                  Principal: {
-                      Service: 'billingreports.amazonaws.com'
-                  },
-                  Action: [
-                      's3:GetBucketAcl',
-                      's3:GetBucketPolicy'
-                  ],
-                  Resource: 'arn:aws:s3:::' + bucketName,
-                  Condition: {
-                      StringEquals: {
-                          'aws:SourceArn': 'arn:aws:cur:us-east-1:' + accountId + ':definition/*',
-                          'aws:SourceAccount': accountId
-                      }
-                  }
-              },
-              {
-                  Sid: 'Stmt1335892526596',
-                  Effect: 'Allow',
-                  Principal: {
-                      Service: 'billingreports.amazonaws.com'
-                  },
-                  Action: [
-                      's3:PutObject'
-                  ],
-                  Resource: 'arn:aws:s3:::' + bucketName + '/*',
-                  Condition: {
-                      StringEquals: {
-                          'aws:SourceArn': 'arn:aws:cur:us-east-1:' + accountId + ':definition/*',
-                          'aws:SourceAccount': accountId
-                      }
-                  }
-              },
-              {
-                  Sid: 'AllowRoleAccessToBucket',
-                  Effect: 'Allow',
-                  Principal: {
-                      AWS: iamRole
-                  },
-                  Action: 's3:GetObject',
-                  Resource: 'arn:aws:s3:::' + bucketName + '/*',
-              }
-          ]
-      };
+    try {
+      console.log("Trying to create bucket", createBucketParams);
+      const result = await s3.createBucket(createBucketParams).promise();
+      console.log("S3 bucket create result: " + result);
 
-      const policyParams = {
-          Bucket: bucketName,
-          Policy: JSON.stringify(policy)
-      }
-
-      if (process.env.AWS_REGION !== "us-east-1") {
-          createBucketParams.CreateBucketConfiguration = {
-              LocationConstraint: process.env.AWS_REGION
-          }
-      }
-
-      try {
-          console.log("Trying to create bucket", createBucketParams);
-          const result = await s3.createBucket(createBucketParams).promise();
-          console.log("S3 bucket create result: " + result);
-
-          console.log("Trying to apply policy");
-          const policyResult = await s3.putBucketPolicy(policyParams).promise();
-          console.log("S3 bucket policy apply result: " + policyResult);
-      } catch (err) {
-          console.log("Failed to create bucket or apply policy", err);
-      }
+      console.log("Trying to apply policy");
+      const policyResult = await s3.putBucketPolicy(policyParams).promise();
+      console.log("S3 bucket policy apply result: " + policyResult);
+    } catch (err) {
+      console.log("Failed to create bucket or apply policy", err);
+    }
   },
   handler = async (e, t) => {
     AWS.config.update({
@@ -238,15 +251,17 @@ const send = (e, t) =>
     }
 
     try {
-        console.info("Tries to create cost and useage report");
-        await createCostUsageReport(
-            e.ResourceProperties.BucketName,
-            e.ResourceProperties.ReportName,
-            e.ResourceProperties.IAMRole,
-            e.ResourceProperties.AccountId
-        )
+      console.info("Tries to create cost and useage report");
+      await createCostUsageReport(
+        e.ResourceProperties.BucketName,
+        e.ResourceProperties.ReportName,
+        e.ResourceProperties.IAMRole,
+        e.ResourceProperties.AccountId,
+      );
     } catch (err) {
-        console.info("failed to create cost and usage report, reason: " + err.message);
+      console.info(
+        "failed to create cost and usage report, reason: " + err.message,
+      );
     }
 
     const n = {
@@ -278,24 +293,30 @@ const send = (e, t) =>
           i
         );
 
-      var responseMessage = ""
-      if (e.ResourceProperties.ExecutionType !== undefined && e.ResourceProperties.ExecutionType !== "UPDATE") {
-            const o = await send(
-                {
-                    method: c,
-                    url: process.env.C8R_API_ENDPOINT + e.ResourceProperties.C8RUniqueId,
-                    headers: {
-                        "content-length": a.length,
-                        "content-type": "application/json",
-                        "User-Agent": "c8r/1.0.0"
-                    },
-                },
-                a
-            );
-            console.log(o)
-          responseMessage = o.body
+      var responseMessage = "";
+      if (
+        e.ResourceProperties.ExecutionType !== undefined &&
+        e.ResourceProperties.ExecutionType !== "UPDATE"
+      ) {
+        const o = await send(
+          {
+            method: c,
+            url:
+              process.env.C8R_API_ENDPOINT + e.ResourceProperties.C8RUniqueId,
+            headers: {
+              "content-length": a.length,
+              "content-type": "application/json",
+              "User-Agent": "c8r/1.0.0",
+            },
+          },
+          a,
+        );
+        console.log(o);
+        responseMessage = o.body;
       } else {
-          responseMessage = "No need to request for account confirmation, executionsType: " + e.ResourceProperties.ExecutionType
+        responseMessage =
+          "No need to request for account confirmation, executionsType: " +
+          e.ResourceProperties.ExecutionType;
       }
 
       return (
@@ -303,7 +324,7 @@ const send = (e, t) =>
         (i.Data.message = "Cloudchipr Role created successfully"),
         console.info(
           "RoleCreateCallback: " + c + " response from webapp",
-            responseMessage
+          responseMessage,
         ),
         i
       );
@@ -314,12 +335,10 @@ const send = (e, t) =>
         console.error(
           "RoleCreateCallback: Error response from " + c + " request to webapp",
           t,
-          t.result
+          t.result,
         ),
         i
       );
     }
   };
 module.exports.handler = handler;
-
-

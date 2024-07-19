@@ -8,9 +8,6 @@ on:
   pull_request:
     branches:
       - main
-    secrets:
-      gh_token:
-        required: true
 
 jobs:
   terraform-checks:
@@ -18,4 +15,3 @@ jobs:
     uses: cloudchipr/private-github-actions/.github/workflows/terraform-connect.yaml@terraform-connect
     secrets:
       gh_token: ${{ secrets.GH_BOT_PAT }}
-
