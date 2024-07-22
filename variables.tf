@@ -12,5 +12,5 @@ variable "data" {
 variable "C8R_API_ENDPOINT" {
   description = "API Endpoint used to verify account setup process."
   type        = string
-  default     = "https://api-bff.cloudchipr.io/providers/aws/account-attempts/"
+  default     = "https://api-bff.cloudchipr.com/providers/aws/account-attempts/"
 }
