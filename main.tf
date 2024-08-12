@@ -1,16 +1,19 @@
 locals {
-  request_type       = split(",", var.data)[10]
-  response_url       = var.C8R_API_ENDPOINT
-  service_token      = aws_lambda_function.cloudchipr_app_callback_lambda_function.arn
-  role_arn           = aws_iam_role.cloudchipr_stack_iam_role.arn
-  account_id         = data.aws_caller_identity.current.account_id
-  c8r_unique_id      = split(",", var.data)[2]
-  confirmation_token = split(",", var.data)[3]
-  report_name        = split(",", var.data)[8]
-  bucket_name        = split(",", var.data)[9]
-  execution_type     = split(",", var.data)[10]
-  iam_role           = join("", ["arn:aws:iam::${local.account_id}:role/", split(",", var.data)[5]])
-  unique_request_id  = split(",", var.data)[11]
+  request_type              = split(",", var.data)[10]
+  response_url              = var.C8R_API_ENDPOINT
+  service_token             = aws_lambda_function.cloudchipr_app_callback_lambda_function.arn
+  role_arn                  = aws_iam_role.cloudchipr_stack_iam_role.arn
+  account_id                = data.aws_caller_identity.current.account_id
+  c8r_unique_id             = split(",", var.data)[2]
+  confirmation_token        = split(",", var.data)[3]
+  report_name               = split(",", var.data)[8]
+  bucket_name               = split(",", var.data)[9]
+  execution_type            = split(",", var.data)[10]
+  iam_role                  = join("", ["arn:aws:iam::${local.account_id}:role/", split(",", var.data)[5]])
+  unique_request_id         = split(",", var.data)[11]
+  data_export_cur2_name     = split(",", var.data)[12]
+  data_export_focus_name    = split(",", var.data)[13]
+  data_export_opthub_report = split(",", var.data)[14]
 }
 
 data "aws_region" "current" {}
@@ -125,6 +128,13 @@ data "aws_iam_policy_document" "CloudchiprStack_read" {
       "cur:Describe*",
       "cur:Get*",
       "cur:ValidateReportDestination",
+      "bcm-data-exports:List*",
+      "bcm-data-exports:Get*",
+      "ce:Get*",
+      "ce:Describe*",
+      "ce:List*",
+      "ce:StartCostAllocationTagBackfill",
+      "ce:UpdateCostAllocationTagsStatus",
       "dax:BatchGet*",
       "dax:ConditionCheckItem",
       "dax:Describe*",
@@ -429,6 +439,8 @@ data "aws_iam_policy_document" "CloudchiprStack_read-write" {
       "consolidatedbilling:Get*",
       "consolidatedbilling:List*",
       "cur:*",
+      "bcm-data-exports:*",
+      "ce:*",
       "dax:BatchGet*",
       "dax:ConditionCheckItem",
       "dax:Describe*",
@@ -688,7 +700,9 @@ data "aws_iam_policy_document" "execution_role_policy" {
     effect = "Allow"
 
     actions = [
-      "iam:ListAccountAliases"
+      "iam:ListAccountAliases",
+      "iam:CreateServiceLinkedRole",
+      "iam:GetRole"
     ]
 
     resources = ["*"]
@@ -699,7 +713,8 @@ data "aws_iam_policy_document" "execution_role_policy" {
 
     actions = [
       "s3:CreateBucket",
-      "s3:PutBucketPolicy"
+      "s3:PutBucketPolicy",
+      "s3:ListBucket"
     ]
 
     resources = [
@@ -712,12 +727,30 @@ data "aws_iam_policy_document" "execution_role_policy" {
 
     actions = [
       "cur:DescribeReportDefinitions",
-      "cur:PutReportDefinition"
+      "cur:PutReportDefinition",
+      "bcm-data-exports:CreateExport",
+      "bcm-data-exports:ListExports"
     ]
 
     resources = ["*"]
   }
 
+}
+
+data "aws_iam_policy_document" "cost_optimization_hub_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "cost-optimization-hub:GetRecommendation",
+      "cost-optimization-hub:ListRecommendations",
+      "cost-optimization-hub:GetPreferences",
+      "cost-optimization-hub:UpdatePreferences",
+      "cost-optimization-hub:UpdateEnrollmentStatus",
+      "cost-optimization-hub:ListEnrollmentStatuses",
+      "organizations:EnableAWSServiceAccess"
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role" "basic_lambda_execution_role" {
@@ -728,6 +761,10 @@ resource "aws_iam_role" "basic_lambda_execution_role" {
   inline_policy {
     name   = "BasicLambdaExecutionPolicy"
     policy = data.aws_iam_policy_document.execution_role_policy.json
+  }
+  inline_policy {
+    name   = "CostOptimizationHubRecommendationPolicy"
+    policy = data.aws_iam_policy_document.cost_optimization_hub_policy.json
   }
 }
 
@@ -745,11 +782,12 @@ resource "aws_lambda_function" "cloudchipr_app_callback_lambda_function" {
   filename      = data.archive_file.lambda.output_path
   handler       = "index.handler"
   role          = aws_iam_role.basic_lambda_execution_role.arn
-  runtime       = "nodejs16.x"
+  runtime       = "nodejs20.x"
   timeout       = 30
   environment {
     variables = {
       C8R_API_ENDPOINT = var.C8R_API_ENDPOINT
+      IS_TERRAFORM     = true
     }
   }
 }
@@ -772,6 +810,9 @@ resource "aws_lambda_invocation" "lambda_execution_role_invoke" {
       "ExecutionType" : local.execution_type,
       "IAMRole" : local.iam_role,
       "UniqueRequestId" : local.unique_request_id
+      "DataExportCUR2Name" : local.data_export_cur2_name
+      "DataExportFOCUSName" : local.data_export_focus_name
+      "DataExportCostOptimizationRecommendationName" : local.data_export_opthub_report
     }
   })
 }
