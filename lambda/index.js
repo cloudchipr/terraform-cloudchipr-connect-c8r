@@ -43,7 +43,7 @@ const costOptimizationHub = new CostOptimizationHubClient({ region: "us-east-1",
 const iam = new IAMClient({region: "us-east-1", credentials: fromEnv()});
 const organizations = new OrganizationsClient({region: "us-east-1", credentials: fromEnv()});
 
-const requestMethodMap = {Create: "patch", CREATE: "patch", Update: "patch", Delete: "delete"};
+const requestMethodMap = {Create: "patch", Update: "patch", Delete: "delete", CREATE: "patch"};
 
 class ResponseError extends Error {
     constructor(e) {
@@ -291,46 +291,58 @@ const checkAndEnableCostOptimizationHub = async (isRoot) => {
 };
 
 const createBcmDataExport = async (bucketName, exportName, queryStatement, tableConfigurations) => {
-    try {
-        const listExportsCommandInput = {};
-        const {Exports} = await bcm.send(new ListExportsCommand(listExportsCommandInput));
-        const exportExists = Exports.some(exp => exp.ExportName === exportName);
+    const maxRetries = 5;
+    const retryDelay = 4000; // 4 seconds delay between retries
 
-        if (exportExists) {
-            console.log(`BCM data export '${exportName}' for bucket ${bucketName} already exists.`);
-        } else {
-            const createExportParams = {
-                Export: {
-                    Name: exportName,
-                    DataQuery: {
-                        QueryStatement: queryStatement,
-                        TableConfigurations: tableConfigurations
-                    },
-                    DestinationConfigurations: {
-                        S3Destination: {
-                            S3Bucket: bucketName,
-                            S3Region: "us-east-1",
-                            S3Prefix: "reports",
-                            S3OutputConfigurations: {
-                                Compression: "PARQUET",
-                                Format: "PARQUET",
-                                OutputType: "CUSTOM",
-                                Overwrite: "OVERWRITE_REPORT"
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const listExportsCommandInput = {};
+            const { Exports } = await bcm.send(new ListExportsCommand(listExportsCommandInput));
+            const exportExists = Exports.some(exp => exp.ExportName === exportName);
+
+            if (exportExists) {
+                console.log(`BCM data export '${exportName}' for bucket ${bucketName} already exists.`);
+                return; // No need to proceed further if the export already exists
+            } else {
+                const createExportParams = {
+                    Export: {
+                        Name: exportName,
+                        DataQuery: {
+                            QueryStatement: queryStatement,
+                            TableConfigurations: tableConfigurations
+                        },
+                        DestinationConfigurations: {
+                            S3Destination: {
+                                S3Bucket: bucketName,
+                                S3Region: "us-east-1",
+                                S3Prefix: "reports",
+                                S3OutputConfigurations: {
+                                    Compression: "PARQUET",
+                                    Format: "PARQUET",
+                                    OutputType: "CUSTOM",
+                                    Overwrite: "OVERWRITE_REPORT"
+                                }
                             }
+                        },
+                        RefreshCadence: {
+                            Frequency: "SYNCHRONOUS"
                         }
-                    },
-                    RefreshCadence: {
-                        Frequency: "SYNCHRONOUS"
                     }
-                }
-            };
+                };
 
-            await bcm.send(new CreateExportCommand(createExportParams));
-            console.log(`BCM data export '${exportName}' created for bucket ${bucketName}.`);
+                await bcm.send(new CreateExportCommand(createExportParams));
+                console.log(`BCM data export '${exportName}' created for bucket ${bucketName}.`);
+                return; // Successful creation, exit the loop
+            }
+        } catch (err) {
+            if (attempt < maxRetries) {
+                console.log(`BCM data export create attempt ${attempt} failed. Retrying in ${retryDelay / 1000} seconds...`);
+                await new Promise(res => setTimeout(res, retryDelay)); // Delay before retrying
+            } else {
+                console.log("Error creating BCM data export after multiple attempts:", err);
+                throw err; // Rethrow the error after max retries
+            }
         }
-    } catch (err) {
-        console.error("Error creating BCM data export:", err);
-        throw err;
     }
 };
 
