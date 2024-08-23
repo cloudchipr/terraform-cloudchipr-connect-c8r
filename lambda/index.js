@@ -43,7 +43,7 @@ const costOptimizationHub = new CostOptimizationHubClient({ region: "us-east-1",
 const iam = new IAMClient({region: "us-east-1", credentials: fromEnv()});
 const organizations = new OrganizationsClient({region: "us-east-1", credentials: fromEnv()});
 
-const requestMethodMap = {Create: "patch", Update: "patch", Delete: "delete"};
+const requestMethodMap = {Create: "patch", Update: "patch", Delete: "delete", CREATE: "patch"};
 
 class ResponseError extends Error {
     constructor(e) {
