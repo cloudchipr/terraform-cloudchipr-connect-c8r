@@ -14,6 +14,7 @@ locals {
   data_export_cur2_name     = split(",", var.data)[12]
   data_export_focus_name    = split(",", var.data)[13]
   data_export_opthub_report = split(",", var.data)[14]
+  sub_account_role          = split(",", var.data)[15]
 }
 
 data "aws_region" "current" {}
@@ -358,7 +359,7 @@ data "aws_iam_policy_document" "CloudchiprStack_read" {
 
   statement {
     actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/OrganizationAccountAccessRole"]
+    resources = ["arn:aws:iam::*:role/${tostring(split(",", var.data)[15])}"]
     effect    = "Allow"
   }
 }
@@ -618,7 +619,7 @@ data "aws_iam_policy_document" "CloudchiprStack_read-write" {
 
   statement {
     actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/OrganizationAccountAccessRole"]
+    resources = ["arn:aws:iam::*:role/${tostring(split(",", var.data)[15])}"]
     effect    = "Allow"
   }
 }
@@ -813,6 +814,7 @@ resource "aws_lambda_invocation" "lambda_execution_role_invoke" {
       "DataExportCUR2Name" : local.data_export_cur2_name
       "DataExportFOCUSName" : local.data_export_focus_name
       "DataExportCostOptimizationRecommendationName" : local.data_export_opthub_report
+      "SubAccountsAssumeRoleName": local.sub_account_role
     }
   })
 }
