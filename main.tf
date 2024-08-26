@@ -814,7 +814,7 @@ resource "aws_lambda_invocation" "lambda_execution_role_invoke" {
       "DataExportCUR2Name" : local.data_export_cur2_name
       "DataExportFOCUSName" : local.data_export_focus_name
       "DataExportCostOptimizationRecommendationName" : local.data_export_opthub_report
-      "SubAccountsAssumeRoleName": local.sub_account_role
+      "SubAccountsAssumeRoleName" : local.sub_account_role
     }
   })
 }
