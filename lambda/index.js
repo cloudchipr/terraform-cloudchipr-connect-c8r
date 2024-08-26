@@ -45,6 +45,8 @@ const organizations = new OrganizationsClient({region: "us-east-1", credentials:
 
 const requestMethodMap = {Create: "patch", Update: "patch", Delete: "delete", CREATE: "patch"};
 
+const errorsMap = new Map();
+
 class ResponseError extends Error {
     constructor(e) {
         super(
@@ -152,6 +154,7 @@ const createS3Bucket = async (bucketName) => {
         console.log(`Bucket ${bucketName} created successfully.`);
     } catch (err) {
         console.error("Error creating bucket:", err);
+        errorsMap.set("createS3Bucket", "Error creating bucket: " + err.message)
         throw err;
     }
 };
@@ -199,6 +202,7 @@ const setS3BucketPolicy = async (bucketName, iamRole, accountId) => {
         console.log(`Bucket policy set for ${bucketName}.`);
     } catch (err) {
         console.error("Error setting bucket policy:", err);
+        errorsMap.set("setS3BucketPolicy", "Error setting bucket policy: " + err.message)
         throw err;
     }
 };
@@ -246,7 +250,8 @@ const createCostUsageReport = async (bucketName, reportName) => {
         const result = await cur.send(new PutReportDefinitionCommand(reportParams));
         console.log("Cost and usage report created:", result);
     } catch (err) {
-        console.log("Failed to create cost and usage report:", err);
+        console.error("Failed to create cost and usage report:", err);
+        errorsMap.set("createCostUsageReport", "Failed to create cost and usage report: " + err.message)
     }
 };
 
@@ -263,7 +268,8 @@ const createServiceLinkedRoleForBCM = async () => {
             await iam.send(new CreateServiceLinkedRoleCommand(createRoleParams));
             console.log('Service-linked role AWSServiceRoleForBCMDataExports created.');
         } else {
-            console.log(`Failed to create Service-linked role AWSServiceRoleForBCMDataExports: ${error.message}`);
+            console.error(`Failed to create Service-linked role AWSServiceRoleForBCMDataExports: ${error.message}`);
+            errorsMap.set("createServiceLinkedRoleForBCM", "Failed to create Service-linked role AWSServiceRoleForBCMDataExports:" + error.message)
             throw error;
         }
     }
@@ -292,6 +298,7 @@ const checkAndEnableCostOptimizationHub = async (isRoot) => {
         console.log('Cost Optimization Hub has been enabled.');
     } catch (error) {
         console.error('Error checking or enabling Cost Optimization Hub:', error);
+        errorsMap.set("checkAndEnableCostOptimizationHub", "Error checking or enabling Cost Optimization Hub: " + error.message)
         throw error;
     }
 };
@@ -346,6 +353,7 @@ const createBcmDataExport = async (bucketName, exportName, queryStatement, table
                 await new Promise(res => setTimeout(res, retryDelay)); // Delay before retrying
             } else {
                 console.log("Error creating BCM data export after multiple attempts:", err);
+                errorsMap.set("createBcmDataExport", "Error creating BCM data export after multiple attempts: " + err.message)
                 throw err; // Rethrow the error after max retries
             }
         }
@@ -419,9 +427,9 @@ const handler = async (event, context) => {
         const dataExportCUR2Name = event.ResourceProperties.DataExportCUR2Name;
         const dataExportFOCUSName = event.ResourceProperties.DataExportFOCUSName;
         const dataExportCostOptimizationRecommendationName = event.ResourceProperties.DataExportCostOptimizationRecommendationName;
-        const createdIamRole = event.ResourceProperties.IAMRole
-        const currentAccountId = event.ResourceProperties.AccountId
-        const isRoot = event.ResourceProperties.AccountId === masterAccountId
+        const createdIamRole = event.ResourceProperties.IAMRole;
+        const currentAccountId = event.ResourceProperties.AccountId;
+        const isRoot = event.ResourceProperties.AccountId === masterAccountId;
 
         console.log("Properties: ")
         console.log(event.ResourceProperties)
@@ -448,7 +456,8 @@ const handler = async (event, context) => {
         await checkAndEnableCostOptimizationHub(isRoot);
         await createCostOptimizationRecommendationExport(bucketName, dataExportCostOptimizationRecommendationName);
     } catch (err) {
-        console.info("Failed to create data exports, reason:", err.message);
+        console.error("Failed to create data exports, reason:", err.message);
+        errorsMap.set("handler", "Failed to create data exports, reason: " + err.message)
     }
 
     const responseData = {
@@ -457,7 +466,9 @@ const handler = async (event, context) => {
         provider_organisation_id: organizationName,
         provider_root_account_id: masterAccountId,
         provider_account_name: accountName,
-        provider_region: process.env.AWS_REGION
+        provider_region: process.env.AWS_REGION,
+        sub_accounts_assume_role_name: event.ResourceProperties.SubAccountsAssumeRoleName,
+        errors: JSON.stringify(Object.fromEntries(errorsMap))
     };
 
     const cloudFormationResponse = {
