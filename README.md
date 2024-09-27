@@ -41,15 +41,15 @@ Cloudchipr License. See [LICENSE](./LICENSE) for more information.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.9.1 |
-| <a name="requirement_archive"></a> [archive](#requirement\_archive) | ~> 2.4.2 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 5.60.0 |
+| <a name="requirement_archive"></a> [archive](#requirement\_archive) | >= 2.4.2 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.60.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_archive"></a> [archive](#provider\_archive) | 2.4.2 |
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.60.0 |
+| <a name="provider_archive"></a> [archive](#provider\_archive) | 2.6.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.69.0 |
 
 ## Modules
 
