@@ -771,7 +771,7 @@ resource "aws_iam_policy" "basic_lambda_execution_policy" {
 
 resource "aws_iam_policy" "cost_optimization_hub_recommendation_policy" {
   name   = "CostOptimizationHubRecommendationPolicy"
-  policy = data.aws_iam_policy_document.execution_role_policy.json
+  policy = data.aws_iam_policy_document.cost_optimization_hub_policy.json
 }
 
 resource "aws_iam_role" "basic_lambda_execution_role" {
