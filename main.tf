@@ -774,7 +774,7 @@ resource "aws_iam_policy" "cost_optimization_hub_recommendation_policy" {
   policy = data.aws_iam_policy_document.execution_role_policy.json
 }
 
-resource "aws_iam_role" "basic_lambda_execution_role" {`
+resource "aws_iam_role" "basic_lambda_execution_role" {
   assume_role_policy = data.aws_iam_policy_document.assume_role_execution.json
   path               = "/"
   name               = split(",", var.data)[6]
