@@ -638,20 +638,30 @@ data "aws_iam_policy_document" "SelfInspect" {
   }
 }
 
+resource "aws_iam_policy" "cloudchipr_stack" {
+  name   = "CloudchiprStack"
+  policy = var.access_level == "read" ? data.aws_iam_policy_document.CloudchiprStack_read.json : data.aws_iam_policy_document.CloudchiprStack_read-write.json
+}
+
+resource "aws_iam_policy" "self_inspect" {
+  name   = "SelfInspect"
+  policy = data.aws_iam_policy_document.SelfInspect.json
+}
+
 resource "aws_iam_role" "cloudchipr_stack_iam_role" {
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
   path               = "/"
   name               = split(",", var.data)[5]
+}
 
-  inline_policy {
-    name   = "CloudchiprStack"
-    policy = var.access_level == "read" ? data.aws_iam_policy_document.CloudchiprStack_read.json : data.aws_iam_policy_document.CloudchiprStack_read-write.json
-  }
+resource "aws_iam_role_policy_attachment" "cloudchipr_stack" {
+  role       = aws_iam_role.cloudchipr_stack_iam_role.name
+  policy_arn = aws_iam_policy.cloudchipr_stack.arn
+}
 
-  inline_policy {
-    name   = "SelfInspect"
-    policy = data.aws_iam_policy_document.SelfInspect.json
-  }
+resource "aws_iam_role_policy_attachment" "self_inspect" {
+  role       = aws_iam_role.cloudchipr_stack_iam_role.name
+  policy_arn = aws_iam_policy.self_inspect.arn
 }
 
 data "aws_iam_policy_document" "assume_role_execution" {
@@ -754,19 +764,30 @@ data "aws_iam_policy_document" "cost_optimization_hub_policy" {
   }
 }
 
+resource "aws_iam_policy" "basic_lambda_execution_policy" {
+  name   = "BasicLambdaExecutionPolicy"
+  policy = data.aws_iam_policy_document.execution_role_policy.json
+}
+
+resource "aws_iam_policy" "cost_optimization_hub_recommendation_policy" {
+  name   = "CostOptimizationHubRecommendationPolicy"
+  policy = data.aws_iam_policy_document.cost_optimization_hub_policy.json
+}
+
 resource "aws_iam_role" "basic_lambda_execution_role" {
   assume_role_policy = data.aws_iam_policy_document.assume_role_execution.json
   path               = "/"
   name               = split(",", var.data)[6]
+}
 
-  inline_policy {
-    name   = "BasicLambdaExecutionPolicy"
-    policy = data.aws_iam_policy_document.execution_role_policy.json
-  }
-  inline_policy {
-    name   = "CostOptimizationHubRecommendationPolicy"
-    policy = data.aws_iam_policy_document.cost_optimization_hub_policy.json
-  }
+resource "aws_iam_role_policy_attachment" "basic_lambda_execution_policy" {
+  role       = aws_iam_role.basic_lambda_execution_role.name
+  policy_arn = aws_iam_policy.basic_lambda_execution_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "cost_optimization_hub_recommendation_policy" {
+  role       = aws_iam_role.basic_lambda_execution_role.name
+  policy_arn = aws_iam_policy.cost_optimization_hub_recommendation_policy.arn
 }
 
 data "archive_file" "lambda" {
