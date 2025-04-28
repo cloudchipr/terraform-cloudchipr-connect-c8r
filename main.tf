@@ -730,7 +730,9 @@ data "aws_iam_policy_document" "execution_role_policy" {
       "cur:DescribeReportDefinitions",
       "cur:PutReportDefinition",
       "bcm-data-exports:CreateExport",
-      "bcm-data-exports:ListExports"
+      "bcm-data-exports:ListExports",
+      "ce:StartCostAllocationTagBackfill",
+      "ce:UpdateCostAllocationTagsStatus"
     ]
 
     resources = ["*"]
