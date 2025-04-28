@@ -131,9 +131,6 @@ data "aws_iam_policy_document" "CloudchiprStack_read" {
       "cur:ValidateReportDestination",
       "bcm-data-exports:List*",
       "bcm-data-exports:Get*",
-      "ce:Get*",
-      "ce:Describe*",
-      "ce:List*",
       "ce:StartCostAllocationTagBackfill",
       "ce:UpdateCostAllocationTagsStatus",
       "dax:BatchGet*",
@@ -359,9 +356,10 @@ data "aws_iam_policy_document" "CloudchiprStack_read" {
 
   statement {
     actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/${tostring(split(",", var.data)[15])}"]
+    resources = ["arn:aws:iam::*:role/${tostring(split(",", var.data)[15])}", "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole", "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole" ]
     effect    = "Allow"
   }
+
 }
 
 data "aws_iam_policy_document" "CloudchiprStack_read-write" {
@@ -619,7 +617,7 @@ data "aws_iam_policy_document" "CloudchiprStack_read-write" {
 
   statement {
     actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/${tostring(split(",", var.data)[15])}"]
+    resources = ["arn:aws:iam::*:role/${tostring(split(",", var.data)[15])}", "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole", "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole" ]
     effect    = "Allow"
   }
 }
