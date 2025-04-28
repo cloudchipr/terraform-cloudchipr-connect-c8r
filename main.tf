@@ -356,7 +356,7 @@ data "aws_iam_policy_document" "CloudchiprStack_read" {
 
   statement {
     actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/${tostring(split(",", var.data)[15])}", "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole", "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole" ]
+    resources = ["arn:aws:iam::*:role/${tostring(split(",", var.data)[15])}", "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole", "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole"]
     effect    = "Allow"
   }
 
@@ -617,7 +617,7 @@ data "aws_iam_policy_document" "CloudchiprStack_read-write" {
 
   statement {
     actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/${tostring(split(",", var.data)[15])}", "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole", "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole" ]
+    resources = ["arn:aws:iam::*:role/${tostring(split(",", var.data)[15])}", "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole", "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole"]
     effect    = "Allow"
   }
 }
