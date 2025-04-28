@@ -35,6 +35,11 @@ const {
     DescribeOrganizationCommand,
     DescribeAccountCommand
 } = require("@aws-sdk/client-organizations");
+const {
+    CostExplorerClient,
+    UpdateCostAllocationTagsStatusCommand,
+    StartCostAllocationTagBackfillCommand
+} = require("@aws-sdk/client-cost-explorer");
 
 const s3 = new S3Client({credentials: fromEnv()});
 const bcm = new BCMDataExportsClient({region: "us-east-1", credentials: fromEnv()});
@@ -42,6 +47,7 @@ const cur = new CostAndUsageReportServiceClient({region: "us-east-1", credential
 const costOptimizationHub = new CostOptimizationHubClient({ region: "us-east-1", credentials: fromEnv() });
 const iam = new IAMClient({region: "us-east-1", credentials: fromEnv()});
 const organizations = new OrganizationsClient({region: "us-east-1", credentials: fromEnv()});
+const ce = new CostExplorerClient({ region: "us-east-1", credentials: fromEnv() });
 
 const requestMethodMap = {Create: "patch", Update: "patch", Delete: "delete", CREATE: "patch"};
 
@@ -398,6 +404,70 @@ const createCostOptimizationRecommendationExport = async (bucketName, exportName
     );
 };
 
+const triggerCostBackfill = async () => {
+    const date = new Date();
+    date.setUTCDate(1);
+    date.setUTCHours(0, 0, 0, 0);
+    date.setUTCMonth(date.getUTCMonth() - 12);
+
+    const iso = date.toISOString();
+    const backfillFrom = iso.split('.')[0] + 'Z';
+
+    const maxRetries = 5;
+    const retryDelay = 4000; // ms
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const params = { BackfillFrom: backfillFrom };
+            const ceResult = await ce.send(new StartCostAllocationTagBackfillCommand(params));
+            console.log("Cost allocation tag backfill started successfully:", ceResult);
+            return; // success—exit the loop
+        } catch (error) {
+            console.error(`Cost backfill attempt ${attempt} failed:`, error);
+            if (attempt < maxRetries) {
+                // wait before retrying
+                await new Promise(res => setTimeout(res, retryDelay));
+            } else {
+                // last attempt failed—record it
+                errorsMap.set(
+                    "startCostAllocationTagBackfill",
+                    `Failed to start cost allocation tag backfill after ${maxRetries} attempts: ${error.message}`
+                );
+            }
+        }
+    }
+};
+
+const enableCostAllocationTags = async (tagKeys = []) => {
+    const maxRetries = 5;
+    const retryDelay = 4000; // ms
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const params = {
+                CostAllocationTagsStatus: tagKeys.map(key => ({
+                    TagKey: key,
+                    Status: "Active"
+                }))
+            };
+            const result = await ce.send(new UpdateCostAllocationTagsStatusCommand(params));
+            console.log(`Enabled cost-allocation tags [${tagKeys.join(",")}]:`, result);
+            return result;
+        } catch (error) {
+            console.error(`EnableTags attempt ${attempt} failed:`, error);
+            if (attempt < maxRetries) {
+                await new Promise(r => setTimeout(r, retryDelay));
+            } else {
+                errorsMap.set(
+                    "enableCostAllocationTags",
+                    `Failed to enable tags [${tagKeys.join(",")}] after ${maxRetries} attempts: ${error.message}`
+                );
+                return null;
+            }
+        }
+    }
+};
+
 const handler = async (event, context) => {
     let accountName = "";
     let organizationName = "";
@@ -421,6 +491,8 @@ const handler = async (event, context) => {
         console.info("The user is not a member of any organization.");
     }
 
+    const isRoot = event.ResourceProperties.AccountId === masterAccountId;
+
     try {
         const bucketName = event.ResourceProperties.BucketName;
         const legacyCURReportName = event.ResourceProperties.ReportName;
@@ -429,7 +501,6 @@ const handler = async (event, context) => {
         const dataExportCostOptimizationRecommendationName = event.ResourceProperties.DataExportCostOptimizationRecommendationName;
         const createdIamRole = event.ResourceProperties.IAMRole;
         const currentAccountId = event.ResourceProperties.AccountId;
-        const isRoot = event.ResourceProperties.AccountId === masterAccountId;
 
         console.log("Properties: ")
         console.log(event.ResourceProperties)
@@ -458,6 +529,14 @@ const handler = async (event, context) => {
     } catch (err) {
         console.error("Failed to create data exports, reason:", err.message);
         errorsMap.set("handler", "Failed to create data exports, reason: " + err.message)
+    }
+
+    if (isRoot) {
+        console.log("Enabling cost allocation tags...");
+        await enableCostAllocationTags([ "aws:createdBy"]);
+
+        console.log("Triggering cost backfill...");
+        await triggerCostBackfill();
     }
 
     const responseData = {
