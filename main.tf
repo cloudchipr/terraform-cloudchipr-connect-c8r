@@ -14,7 +14,7 @@ locals {
   data_export_cur2_name     = split(",", var.data)[12]
   data_export_focus_name    = split(",", var.data)[13]
   data_export_opthub_report = split(",", var.data)[14]
-  sub_account_role          = split(",", var.data)[15]
+  sub_account_role          = split(",", var.data)[16]
 }
 
 data "aws_region" "current" {}
