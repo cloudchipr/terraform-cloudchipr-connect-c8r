@@ -1,11 +1,11 @@
 const https = require("https");
-const urlUtil = require("url");
 
 const {
     S3Client,
     CreateBucketCommand,
     HeadBucketCommand,
-    PutBucketPolicyCommand
+    PutBucketPolicyCommand,
+    PutBucketVersioningCommand
 } = require("@aws-sdk/client-s3");
 const {
     BCMDataExportsClient,
@@ -17,11 +17,6 @@ const {
     ListEnrollmentStatusesCommand,
     UpdateEnrollmentStatusCommand
 } = require("@aws-sdk/client-cost-optimization-hub");
-const {
-    CostAndUsageReportServiceClient,
-    DescribeReportDefinitionsCommand,
-    PutReportDefinitionCommand
-} = require("@aws-sdk/client-cost-and-usage-report-service");
 const {fromEnv} = require("@aws-sdk/credential-providers");
 const {
     IAMClient,
@@ -43,7 +38,6 @@ const {
 
 const s3 = new S3Client({credentials: fromEnv()});
 const bcm = new BCMDataExportsClient({region: "us-east-1", credentials: fromEnv()});
-const cur = new CostAndUsageReportServiceClient({region: "us-east-1", credentials: fromEnv()});
 const costOptimizationHub = new CostOptimizationHubClient({ region: "us-east-1", credentials: fromEnv() });
 const iam = new IAMClient({region: "us-east-1", credentials: fromEnv()});
 const organizations = new OrganizationsClient({region: "us-east-1", credentials: fromEnv()});
@@ -66,9 +60,9 @@ const sendHttpsRequest = (options, body) =>
     new Promise((resolve, reject) => {
         const reqOptions = {...options};
         if (reqOptions.url) {
-            const parsedUrl = urlUtil.parse(reqOptions.url);
-            reqOptions.path = parsedUrl.path;
-            reqOptions.hostname = parsedUrl.host;
+            const parsedUrl = new URL(reqOptions.url);
+            reqOptions.path = parsedUrl.pathname + parsedUrl.search;
+            reqOptions.hostname = parsedUrl.hostname;
             delete reqOptions.url;
         }
         reqOptions.port = 443;
@@ -178,12 +172,47 @@ const setS3BucketPolicy = async (bucketName, iamRole, accountId) => {
                     Action: ["s3:GetBucketAcl", "s3:PutObject", "s3:GetBucketPolicy"],
                     Resource: [`arn:aws:s3:::${bucketName}`, `arn:aws:s3:::${bucketName}/*`],
                     Condition: {
-                        StringLike: {
+                        ArnLike: {
                             "aws:SourceArn": [
                                 `arn:aws:cur:us-east-1:${accountId}:definition/*`,
                                 `arn:aws:bcm-data-exports:us-east-1:${accountId}:export/*`
-                            ],
+                            ]
+                        },
+                        StringEquals: {
                             "aws:SourceAccount": accountId
+                        }
+                    }
+                },
+                {
+                    Sid: "AWSConfigBucketPermissionsCheck",
+                    Effect: "Allow",
+                    Principal: { Service: "config.amazonaws.com" },
+                    Action: "s3:GetBucketAcl",
+                    Resource: `arn:aws:s3:::${bucketName}`,
+                    Condition: {
+                        StringEquals: { "AWS:SourceAccount": accountId }
+                    }
+                },
+                {
+                    Sid: "AWSConfigBucketExistenceCheck",
+                    Effect: "Allow",
+                    Principal: { Service: "config.amazonaws.com" },
+                    Action: "s3:ListBucket",
+                    Resource: `arn:aws:s3:::${bucketName}`,
+                    Condition: {
+                        StringEquals: { "AWS:SourceAccount": accountId }
+                    }
+                },
+                {
+                    Sid: "AWSConfigBucketDelivery",
+                    Effect: "Allow",
+                    Principal: { Service: "config.amazonaws.com" },
+                    Action: "s3:PutObject",
+                    Resource: `arn:aws:s3:::${bucketName}/AWSLogs/${accountId}/Config/*`,
+                    Condition: {
+                        StringEquals: {
+                            "AWS:SourceAccount": accountId,
+                            "s3:x-amz-acl": "bucket-owner-full-control"
                         }
                     }
                 },
@@ -195,6 +224,19 @@ const setS3BucketPolicy = async (bucketName, iamRole, accountId) => {
                     },
                     Action: "s3:GetObject",
                     Resource: [`arn:aws:s3:::${bucketName}`, `arn:aws:s3:::${bucketName}/*`]
+                },
+                {
+                    Sid: "AllowSSLRequestsOnly",
+                    Effect: "Deny",
+                    Principal: "*",
+                    Action: "s3:*",
+                    Resource: [
+                        `arn:aws:s3:::${bucketName}`,
+                        `arn:aws:s3:::${bucketName}/*`
+                    ],
+                    Condition: {
+                        Bool: { "aws:SecureTransport": "false" }
+                    }
                 }
             ]
         };
@@ -210,54 +252,6 @@ const setS3BucketPolicy = async (bucketName, iamRole, accountId) => {
         console.error("Error setting bucket policy:", err);
         errorsMap.set("setS3BucketPolicy", "Error setting bucket policy: " + err.message)
         throw err;
-    }
-};
-
-const createCostUsageReport = async (bucketName, reportName) => {
-    const prefix = 'reports/';
-
-    // Checking if report exists
-    const describeReportsParams = {};
-    const reportDefinitions = [];
-    let response = await cur.send(new DescribeReportDefinitionsCommand(describeReportsParams));
-
-    reportDefinitions.push(...response.ReportDefinitions);
-
-    while (response.NextToken) {
-        describeReportsParams.NextToken = response.NextToken;
-
-        response = await cur.send(new DescribeReportDefinitionsCommand(describeReportsParams));
-        reportDefinitions.push(...response.ReportDefinitions);
-    }
-
-    const reportDefinition = reportDefinitions.find(rd => rd.ReportName === reportName);
-    if (reportDefinition) {
-        console.log(`The report definition '${reportName}' exists.`);
-        return true;
-    }
-
-    const reportParams = {
-        ReportDefinition: {
-            ReportName: reportName,
-            TimeUnit: "DAILY",
-            Format: "textORcsv",
-            Compression: "GZIP",
-            AdditionalSchemaElements: ["RESOURCES"],
-            S3Bucket: bucketName,
-            S3Prefix: prefix,
-            S3Region: process.env.AWS_REGION,
-            ReportVersioning: "OVERWRITE_REPORT"
-        }
-    };
-
-    console.log(reportParams);
-
-    try {
-        const result = await cur.send(new PutReportDefinitionCommand(reportParams));
-        console.log("Cost and usage report created:", result);
-    } catch (err) {
-        console.error("Failed to create cost and usage report:", err);
-        errorsMap.set("createCostUsageReport", "Failed to create cost and usage report: " + err.message)
     }
 };
 
@@ -370,8 +364,8 @@ const createFocusExport = async (bucketName, exportName) => {
     await createBcmDataExport(
         bucketName,
         exportName,
-        "SELECT AvailabilityZone, BilledCost, BillingAccountId, BillingAccountName, BillingCurrency, BillingPeriodEnd, BillingPeriodStart, ChargeCategory, ChargeClass, ChargeDescription, ChargeFrequency, ChargePeriodEnd, ChargePeriodStart, CommitmentDiscountCategory, CommitmentDiscountId, CommitmentDiscountName, CommitmentDiscountStatus, CommitmentDiscountType, ConsumedQuantity, ConsumedUnit, ContractedCost, ContractedUnitPrice, EffectiveCost, InvoiceIssuerName, ListCost, ListUnitPrice, PricingCategory, PricingQuantity, PricingUnit, ProviderName, PublisherName, RegionId, RegionName, ResourceId, ResourceName, ResourceType, ServiceCategory, ServiceName, SkuId, SkuPriceId, SubAccountId, SubAccountName, Tags, x_CostCategories, x_Discounts, x_Operation, x_ServiceCode, x_UsageType FROM FOCUS_1_0_AWS_PREVIEW",
-        {FOCUS_1_0_AWS_PREVIEW: {}}
+        "SELECT AvailabilityZone, BilledCost, BillingAccountId, BillingAccountName, BillingCurrency, BillingPeriodEnd, BillingPeriodStart, ChargeCategory, ChargeClass, ChargeDescription, ChargeFrequency, ChargePeriodEnd, ChargePeriodStart, CommitmentDiscountCategory, CommitmentDiscountId, CommitmentDiscountName, CommitmentDiscountStatus, CommitmentDiscountType, ConsumedQuantity, ConsumedUnit, ContractedCost, ContractedUnitPrice, EffectiveCost, InvoiceIssuerName, ListCost, ListUnitPrice, PricingCategory, PricingQuantity, PricingUnit, ProviderName, PublisherName, RegionId, RegionName, ResourceId, ResourceName, ResourceType, ServiceCategory, ServiceName, SkuId, SkuPriceId, SubAccountId, SubAccountName, Tags, x_CostCategories, x_Discounts, x_Operation, x_ServiceCode, x_UsageType FROM FOCUS_1_0_AWS",
+        {FOCUS_1_0_AWS: {}}
     );
 };
 
@@ -400,6 +394,17 @@ const createCostOptimizationRecommendationExport = async (bucketName, exportName
                 INCLUDE_ALL_RECOMMENDATIONS: "TRUE",
                 FILTER: "{}"
             }
+        }
+    );
+};
+
+const createCarbonExport = async (bucketName, exportName) => {
+    await createBcmDataExport(
+        bucketName,
+        exportName,
+        "SELECT last_refresh_timestamp, location, model_version, payer_account_id, product_code, region_code, total_lbm_emissions_unit, total_lbm_emissions_value, total_mbm_emissions_unit, total_mbm_emissions_value, usage_account_id, usage_period_end, usage_period_start FROM CARBON_EMISSIONS",
+        {
+            CARBON_EMISSIONS: {}
         }
     );
 };
@@ -495,10 +500,10 @@ const handler = async (event, context) => {
 
     try {
         const bucketName = event.ResourceProperties.BucketName;
-        const legacyCURReportName = event.ResourceProperties.ReportName;
         const dataExportCUR2Name = event.ResourceProperties.DataExportCUR2Name;
         const dataExportFOCUSName = event.ResourceProperties.DataExportFOCUSName;
         const dataExportCostOptimizationRecommendationName = event.ResourceProperties.DataExportCostOptimizationRecommendationName;
+        const carbonExportName = event.ResourceProperties.DataExportCarbonEmissionsName;
         const createdIamRole = event.ResourceProperties.IAMRole;
         const currentAccountId = event.ResourceProperties.AccountId;
 
@@ -518,14 +523,19 @@ const handler = async (event, context) => {
             }
         }
 
-        await setS3BucketPolicy(bucketName, createdIamRole, currentAccountId);
+        await s3.send(new PutBucketVersioningCommand({
+            Bucket: bucketName,
+            VersioningConfiguration: { Status: "Enabled" }
+        }));
+        console.log(`Versioning enabled for bucket ${bucketName}.`);
 
-        await createCostUsageReport(bucketName, legacyCURReportName);
+        await setS3BucketPolicy(bucketName, createdIamRole, currentAccountId);
         await createCur2Export(bucketName, dataExportCUR2Name);
         await createFocusExport(bucketName, dataExportFOCUSName);
         await createServiceLinkedRoleForBCM();
         await checkAndEnableCostOptimizationHub(isRoot);
         await createCostOptimizationRecommendationExport(bucketName, dataExportCostOptimizationRecommendationName);
+        await createCarbonExport(bucketName, carbonExportName);
     } catch (err) {
         console.error("Failed to create data exports, reason:", err.message);
         errorsMap.set("handler", "Failed to create data exports, reason: " + err.message)

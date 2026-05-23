@@ -1,0 +1,763 @@
+locals {
+  response_url               = var.C8R_API_ENDPOINT
+  account_id                 = data.aws_caller_identity.current.account_id
+  region                     = data.aws_region.current.region
+  c8r_account_id             = split(",", var.data)[0]
+  external_id                = split(",", var.data)[1]
+  c8r_unique_id              = split(",", var.data)[2]
+  confirmation_token         = split(",", var.data)[3]
+  c8r_role_name              = split(",", var.data)[4]
+  iam_role_name              = split(",", var.data)[5]
+  iam_role_arn               = "arn:aws:iam::${local.account_id}:role/${local.iam_role_name}"
+  lambda_execution_role_name = split(",", var.data)[6]
+  lambda_function_name       = split(",", var.data)[7]
+  lambda_execution_role_arn  = "arn:aws:iam::${local.account_id}:role/${local.lambda_execution_role_name}"
+  lambda_function_arn        = "arn:aws:lambda:${local.region}:${local.account_id}:function:${local.lambda_function_name}"
+  report_name                = split(",", var.data)[8]
+  bucket_name                = split(",", var.data)[9]
+  execution_type             = split(",", var.data)[10]
+  unique_request_id          = split(",", var.data)[11]
+  data_export_cur2_name      = split(",", var.data)[12]
+  data_export_focus_name     = split(",", var.data)[13]
+  data_export_opthub_report  = split(",", var.data)[14]
+  data_export_carbon_report  = split(",", var.data)[15]
+  sub_account_role           = split(",", var.data)[16]
+}
+
+data "aws_region" "current" {}
+
+data "aws_caller_identity" "current" {}
+
+data "aws_iam_policy_document" "assume_role" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type = "AWS"
+      identifiers = [
+        "arn:aws:iam::${local.c8r_account_id}:role/${local.c8r_role_name}"
+      ]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "sts:ExternalId"
+      values   = [local.external_id]
+    }
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+data "aws_iam_policy_document" "CloudchiprStack_read" {
+  statement {
+    actions = [
+      "iam:DeleteRolePolicy",
+      "iam:DeleteRole"
+    ]
+    resources = [
+      local.iam_role_arn
+    ]
+    effect = "Allow"
+  }
+
+  statement {
+    actions = [
+      "iam:DeleteRolePolicy",
+      "iam:DeleteRole"
+    ]
+    resources = [
+      local.lambda_execution_role_arn
+    ]
+    effect = "Allow"
+  }
+
+  statement {
+    actions = [
+      "lambda:DeleteFunction",
+      "lambda:InvokeFunction"
+    ]
+    resources = [
+      local.lambda_function_arn
+    ]
+    effect = "Allow"
+  }
+
+  statement {
+    actions = [
+      "account:Get*",
+      "account:List*",
+      "aoss:BatchGet*",
+      "aoss:Get*",
+      "aoss:List*",
+      "application-autoscaling:Describe*",
+      "application-cost-profiler:Get*",
+      "application-cost-profiler:List*",
+      "applicationinsights:Describe*",
+      "applicationinsights:List*",
+      "arc-zonal-shift:Get*",
+      "arc-zonal-shift:List*",
+      "athena:BatchGet*",
+      "athena:Get*",
+      "athena:List*",
+      "autoscaling-plans:Describe*",
+      "autoscaling-plans:Get*",
+      "autoscaling:Describe*",
+      "autoscaling:Get*",
+      "aws-portal:Get*",
+      "aws-portal:View*",
+      "billing:Get*",
+      "billing:List*",
+      "billingconductor:List*",
+      "budgets:Describe*",
+      "budgets:View*",
+      "ce:Describe*",
+      "ce:Get*",
+      "ce:List*",
+      "cloudformation:BatchDescribe*",
+      "cloudformation:Describe*",
+      "cloudformation:Detect*",
+      "cloudformation:EstimateTemplateCost",
+      "cloudformation:Get*",
+      "cloudformation:List*",
+      "cloudformation:ValidateTemplate",
+      "cloudfront:Describe*",
+      "cloudfront:Get*",
+      "cloudfront:List*",
+      "cloudsearch:Describe*",
+      "cloudsearch:List*",
+      "cloudtrail:Describe*",
+      "cloudtrail:Get*",
+      "cloudtrail:List*",
+      "cloudtrail:Lookup*",
+      "cloudwatch:Describe*",
+      "cloudwatch:Get*",
+      "cloudwatch:List*",
+      "compute-optimizer:Describe*",
+      "compute-optimizer:Get*",
+      "consolidatedbilling:Get*",
+      "consolidatedbilling:List*",
+      "cur:Describe*",
+      "cur:Get*",
+      "cur:ValidateReportDestination",
+      "bcm-data-exports:List*",
+      "bcm-data-exports:Get*",
+      "ce:StartCostAllocationTagBackfill",
+      "ce:UpdateCostAllocationTagsStatus",
+      "dax:BatchGet*",
+      "dax:ConditionCheckItem",
+      "dax:Describe*",
+      "dax:Get*",
+      "dax:List*",
+      "docdb-elastic:Get*",
+      "docdb-elastic:List*",
+      "drs:Describe*",
+      "drs:Get*",
+      "drs:List*",
+      "dynamodb:BatchGet*",
+      "dynamodb:ConditionCheck*",
+      "dynamodb:Describe*",
+      "dynamodb:Get*",
+      "dynamodb:List*",
+      "ebs:Get*",
+      "ebs:List*",
+      "ec2:Describe*",
+      "ec2:Get*",
+      "ec2:List*",
+      "ec2:Search*",
+      "ec2messages:Get*",
+      "ecr-public:BatchCheckLayerAvailability",
+      "ecr-public:Describe*",
+      "ecr-public:Get*",
+      "ecr-public:List*",
+      "ecs:Describe*",
+      "ecs:Get*",
+      "ecs:List*",
+      "eks:AccessKubernetesApi",
+      "eks:Describe*",
+      "eks:List*",
+      "elastic-inference:Describe*",
+      "elastic-inference:List*",
+      "elasticache:Describe*",
+      "elasticache:List*",
+      "elasticloadbalancing:Describe*",
+      "es:Describe*",
+      "es:ESCrossClusterGet",
+      "es:ESHttpGet",
+      "es:ESHttpHead",
+      "es:Get*",
+      "es:List*",
+      "events:Describe*",
+      "events:List*",
+      "events:TestEventPattern",
+      "evidently:Get*",
+      "evidently:List*",
+      "evidently:TestSegmentPattern",
+      "forecast:Describe*",
+      "forecast:Get*",
+      "forecast:InvokeForecastEndpoint",
+      "forecast:List*",
+      "freetier:Get*",
+      "glacier:Describe*",
+      "glacier:Get*",
+      "glacier:List*",
+      "glue:BatchGet*",
+      "glue:CheckSchemaVersionValidity",
+      "glue:Get*",
+      "glue:List*",
+      "grafana:Describe*",
+      "grafana:List*",
+      "iam:ListAccountAliases",
+      "imagebuilder:Get*",
+      "imagebuilder:List*",
+      "kafka-cluster:Describe*",
+      "kafka:Describe*",
+      "kafka:Get*",
+      "kafka:List*",
+      "kafkaconnect:Describe*",
+      "kafkaconnect:List*",
+      "kinesis:Describe*",
+      "kinesis:Get*",
+      "kinesis:List*",
+      "kinesisanalytics:Describe*",
+      "kinesisanalytics:DiscoverInputSchema",
+      "kinesisanalytics:Get*",
+      "kinesisanalytics:List*",
+      "kinesisvideo:Describe*",
+      "kinesisvideo:Get*",
+      "kinesisvideo:List*",
+      "kms:Describe*",
+      "kms:List*",
+      "lakeformation:Describe*",
+      "lakeformation:Get*",
+      "lakeformation:List*",
+      "lambda:Get*",
+      "lambda:List*",
+      "logs:Describe*",
+      "logs:FilterLogEvents",
+      "logs:Get*",
+      "logs:List*",
+      "logs:TestMetricFilter",
+      "logs:Unmask",
+      "machinelearning:Describe*",
+      "machinelearning:Get*",
+      "memorydb:Describe*",
+      "memorydb:List*",
+      "notifications:Get*",
+      "notifications:List*",
+      "organizations:Describe*",
+      "organizations:List*",
+      "osis:Get*",
+      "osis:List*",
+      "osis:ValidatePipeline",
+      "pipes:Describe*",
+      "pipes:List*",
+      "pricing:Describe*",
+      "pricing:Get*",
+      "pricing:List*",
+      "qldb:Describe*",
+      "qldb:Get*",
+      "qldb:List*",
+      "quicksight:Describe*",
+      "quicksight:Get*",
+      "quicksight:List*",
+      "rds:Describe*",
+      "rds:List*",
+      "redshift-data:Describe*",
+      "redshift-data:Get*",
+      "redshift-data:List*",
+      "redshift-serverless:Get*",
+      "redshift-serverless:List*",
+      "resource-explorer-2:BatchGet*",
+      "resource-explorer-2:Get*",
+      "resource-explorer-2:List*",
+      "resource-explorer:List*",
+      "resource-groups:Get*",
+      "resource-groups:List*",
+      "route53-recovery-cluster:Get*",
+      "route53-recovery-cluster:List*",
+      "route53-recovery-control-config:Describe*",
+      "route53-recovery-control-config:List*",
+      "route53-recovery-readiness:Get*",
+      "route53-recovery-readiness:List*",
+      "route53:Get*",
+      "route53:List*",
+      "route53:TestDNSAnswer",
+      "route53domains:CheckDomainAvailability",
+      "route53domains:CheckDomainTransferability",
+      "route53domains:Get*",
+      "route53domains:List*",
+      "route53domains:View*",
+      "route53resolver:Get*",
+      "route53resolver:List*",
+      "rum:BatchGet*",
+      "rum:Get*",
+      "rum:List*",
+      "s3-object-lambda:Get*",
+      "s3-object-lambda:List*",
+      "s3-outposts:Get*",
+      "s3-outposts:List*",
+      "s3:Describe*",
+      "s3:Get*",
+      "s3:List*",
+      "sagemaker-geospatial:Get*",
+      "sagemaker-geospatial:List*",
+      "sagemaker-groundtruth-synthetic:Get*",
+      "sagemaker-groundtruth-synthetic:List*",
+      "sagemaker:BatchDescribe*",
+      "sagemaker:BatchGet*",
+      "sagemaker:Describe*",
+      "sagemaker:Get*",
+      "sagemaker:InvokeEndpoint",
+      "sagemaker:InvokeEndpointAsync",
+      "sagemaker:List*",
+      "sagemaker:RenderUiTemplate",
+      "savingsplans:Describe*",
+      "savingsplans:List*",
+      "scheduler:Get*",
+      "scheduler:List*",
+      "schemas:Describe*",
+      "schemas:Get*",
+      "schemas:List*",
+      "sdb:DomainMetadata",
+      "sdb:Get*",
+      "sdb:List*",
+      "servicecatalog:Describe*",
+      "servicecatalog:Get*",
+      "servicecatalog:List*",
+      "servicequotas:Get*",
+      "servicequotas:List*",
+      "ses:BatchGetMetricData",
+      "ses:Describe*",
+      "ses:Get*",
+      "ses:List*",
+      "snowball:Describe*",
+      "snowball:Get*",
+      "snowball:List*",
+      "sns:Get*",
+      "sns:List*",
+      "sqlworkbench:BatchGet*",
+      "sqlworkbench:Get*",
+      "sqlworkbench:List*",
+      "sqs:Get*",
+      "sqs:List*",
+      "storagegateway:Describe*",
+      "storagegateway:List*",
+      "synthetics:Describe*",
+      "synthetics:Get*",
+      "synthetics:List*",
+      "tag:Describe*",
+      "tag:Get*",
+      "timestream:Describe*",
+      "timestream:Get*",
+      "timestream:List*",
+      "transfer:Describe*",
+      "transfer:List*",
+      "transfer:TestIdentityProvider",
+      "trustedadvisor:Describe*",
+      "trustedadvisor:Get*",
+      "trustedadvisor:List*",
+      "wellarchitected:Get*",
+      "wellarchitected:List*",
+      "backup:List*",
+      "config:*"
+    ]
+    resources = ["*"]
+    effect    = "Allow"
+  }
+
+  statement {
+    actions = ["sts:AssumeRole"]
+    resources = [
+      "arn:aws:iam::*:role/${local.sub_account_role}",
+      "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole",
+      "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole",
+      "arn:aws:iam::*:role/OrganizationAccountAccessRole"
+    ]
+    effect = "Allow"
+  }
+
+}
+
+data "aws_iam_policy_document" "CloudchiprStack_read-write" {
+  statement {
+    actions = [
+      "iam:DeleteRolePolicy",
+      "iam:DeleteRole"
+    ]
+    resources = [
+      local.lambda_execution_role_arn
+    ]
+    effect = "Allow"
+  }
+
+  statement {
+    actions = [
+      "iam:DeleteRolePolicy",
+      "iam:DeleteRole"
+    ]
+    resources = [
+      local.iam_role_arn
+    ]
+    effect = "Allow"
+  }
+  statement {
+    actions = [
+      "lambda:DeleteFunction",
+      "lambda:InvokeFunction"
+    ]
+    resources = [
+      local.lambda_function_arn
+    ]
+    effect = "Allow"
+  }
+
+  statement {
+    actions = [
+      "account:*",
+      "aoss:*",
+      "application-autoscaling:Describe*",
+      "application-cost-profiler:Get*",
+      "application-cost-profiler:List*",
+      "applicationinsights:Describe*",
+      "applicationinsights:List*",
+      "arc-zonal-shift:Get*",
+      "arc-zonal-shift:List*",
+      "athena:BatchGet*",
+      "athena:Get*",
+      "athena:List*",
+      "athena:Delete*",
+      "athena:Update*",
+      "athena:Cancel*",
+      "autoscaling-plans:*",
+      "autoscaling:*",
+      "aws-portal:Get*",
+      "aws-portal:View*",
+      "billing:*",
+      "billingconductor:List*",
+      "budgets:*",
+      "ce:*",
+      "cloudformation:*",
+      "cloudfront:Describe*",
+      "cloudfront:Get*",
+      "cloudfront:List*",
+      "cloudsearch:Describe*",
+      "cloudsearch:List*",
+      "cloudsearch:Delete*",
+      "cloudsearch:Update*",
+      "cloudtrail:Describe*",
+      "cloudtrail:Get*",
+      "cloudtrail:List*",
+      "cloudtrail:Lookup*",
+      "cloudwatch:*",
+      "compute-optimizer:Describe*",
+      "compute-optimizer:Get*",
+      "consolidatedbilling:Get*",
+      "consolidatedbilling:List*",
+      "cur:*",
+      "bcm-data-exports:*",
+      "ce:*",
+      "dax:BatchGet*",
+      "dax:ConditionCheckItem",
+      "dax:Describe*",
+      "dax:Get*",
+      "dax:List*",
+      "dax:Delete*",
+      "dax:Update*",
+      "docdb-elastic:*",
+      "drs:Describe*",
+      "drs:Get*",
+      "drs:List*",
+      "dynamodb:BatchGet*",
+      "dynamodb:ConditionCheck*",
+      "dynamodb:Describe*",
+      "dynamodb:Get*",
+      "dynamodb:List*",
+      "dynamodb:Delete*",
+      "dynamodb:Disable*",
+      "dynamodb:Update*",
+      "ebs:*",
+      "ec2:*",
+      "ec2messages:*",
+      "ecr-public:*",
+      "ecs:*",
+      "eks:*",
+      "elastic-inference:Describe*",
+      "elastic-inference:List*",
+      "elasticache:Delete*",
+      "elasticache:Decrease*",
+      "elasticache:Increase*",
+      "elasticache:Disassociate*",
+      "elasticache:Describe*",
+      "elasticache:List*",
+      "elasticloadbalancing:DeleteLoadBalancer",
+      "elasticloadbalancing:Describe*",
+      "es:*",
+      "events:Describe*",
+      "events:List*",
+      "events:TestEventPattern",
+      "evidently:Get*",
+      "evidently:List*",
+      "evidently:TestSegmentPattern",
+      "forecast:Describe*",
+      "forecast:Get*",
+      "forecast:InvokeForecastEndpoint",
+      "forecast:List*",
+      "freetier:Get*",
+      "glacier:*",
+      "glue:*",
+      "grafana:Describe*",
+      "grafana:List*",
+      "iam:ListAccountAliases",
+      "imagebuilder:*",
+      "kafka-cluster:*",
+      "kafka:*",
+      "kafkaconnect:Describe*",
+      "kafkaconnect:List*",
+      "kinesis:*",
+      "kinesisanalytics:*",
+      "kinesisvideo:*",
+      "kms:Describe*",
+      "kms:List*",
+      "kms:Delete*",
+      "kms:Disable*",
+      "kms:Update*",
+      "lakeformation:Describe*",
+      "lakeformation:Get*",
+      "lakeformation:List*",
+      "lambda:Get*",
+      "lambda:List*",
+      "logs:Describe*",
+      "logs:FilterLogEvents",
+      "logs:Get*",
+      "logs:List*",
+      "logs:TestMetricFilter",
+      "logs:Unmask",
+      "machinelearning:*",
+      "memorydb:*",
+      "notifications:Get*",
+      "notifications:List*",
+      "organizations:Describe*",
+      "organizations:List*",
+      "osis:*",
+      "pipes:Describe*",
+      "pipes:List*",
+      "pricing:Describe*",
+      "pricing:Get*",
+      "pricing:List*",
+      "qldb:Describe*",
+      "qldb:Get*",
+      "qldb:List*",
+      "quicksight:Describe*",
+      "quicksight:Get*",
+      "quicksight:List*",
+      "rds:*",
+      "redshift-data:Describe*",
+      "redshift-data:Get*",
+      "redshift-data:List*",
+      "redshift-serverless:*",
+      "resource-explorer-2:BatchGet*",
+      "resource-explorer-2:Get*",
+      "resource-explorer-2:List*",
+      "resource-explorer:List*",
+      "resource-groups:Get*",
+      "resource-groups:List*",
+      "route53-recovery-cluster:Get*",
+      "route53-recovery-cluster:List*",
+      "route53-recovery-control-config:Describe*",
+      "route53-recovery-control-config:List*",
+      "route53-recovery-readiness:Get*",
+      "route53-recovery-readiness:List*",
+      "route53:Get*",
+      "route53:List*",
+      "route53:TestDNSAnswer",
+      "route53domains:CheckDomainAvailability",
+      "route53domains:CheckDomainTransferability",
+      "route53domains:Get*",
+      "route53domains:List*",
+      "route53domains:View*",
+      "route53resolver:Get*",
+      "route53resolver:List*",
+      "rum:BatchGet*",
+      "rum:Get*",
+      "rum:List*",
+      "s3-object-lambda:*",
+      "s3-outposts:*",
+      "s3:*",
+      "sagemaker-geospatial:*",
+      "sagemaker-groundtruth-synthetic:*",
+      "sagemaker:*",
+      "savingsplans:*",
+      "scheduler:Get*",
+      "scheduler:List*",
+      "schemas:Describe*",
+      "schemas:Get*",
+      "schemas:List*",
+      "sdb:DomainMetadata",
+      "sdb:Delete*",
+      "sdb:Get*",
+      "sdb:List*",
+      "servicecatalog:*",
+      "ses:BatchGetMetricData",
+      "ses:Describe*",
+      "ses:Get*",
+      "ses:List*",
+      "snowball:*",
+      "sns:*",
+      "sqlworkbench:BatchGet*",
+      "sqlworkbench:Get*",
+      "sqlworkbench:List*",
+      "sqs:*",
+      "storagegateway:Describe*",
+      "storagegateway:List*",
+      "synthetics:Describe*",
+      "synthetics:Get*",
+      "synthetics:List*",
+      "tag:*",
+      "timestream:Describe*",
+      "timestream:Get*",
+      "timestream:List*",
+      "transfer:Describe*",
+      "transfer:List*",
+      "transfer:TestIdentityProvider",
+      "trustedadvisor:Describe*",
+      "trustedadvisor:Get*",
+      "trustedadvisor:List*",
+      "wellarchitected:Get*",
+      "wellarchitected:List*",
+      "backup:List*",
+      "backup:DeleteRecoveryPoint",
+      "config:*"
+    ]
+    resources = ["*"]
+    effect    = "Allow"
+  }
+
+  statement {
+    actions = ["sts:AssumeRole"]
+    resources = [
+      "arn:aws:iam::*:role/${local.sub_account_role}",
+      "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole",
+      "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole",
+      "arn:aws:iam::*:role/OrganizationAccountAccessRole"
+    ]
+    effect = "Allow"
+  }
+}
+
+data "aws_iam_policy_document" "SelfInspect" {
+  statement {
+    sid = "AllowRoleToInspectItself"
+    actions = [
+      "iam:ListRolePolicies",
+      "iam:GetRolePolicy"
+    ]
+    resources = [
+      local.iam_role_arn
+    ]
+    effect = "Allow"
+  }
+}
+
+data "aws_iam_policy_document" "assume_role_execution" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+data "aws_iam_policy_document" "execution_role_policy" {
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+
+    resources = ["arn:aws:logs:*:*:*"]
+  }
+
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "organizations:DescribeOrganization",
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "organizations:DescribeAccount"
+    ]
+
+    resources = ["*"]
+  }
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "iam:ListAccountAliases",
+      "iam:CreateServiceLinkedRole",
+      "iam:GetRole"
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "s3:CreateBucket",
+      "s3:PutBucketPolicy",
+      "s3:PutBucketVersioning",
+      "s3:ListBucket"
+    ]
+
+    resources = [
+      "arn:aws:s3:::${local.bucket_name}"
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "cur:DescribeReportDefinitions",
+      "cur:PutReportDefinition",
+      "bcm-data-exports:CreateExport",
+      "bcm-data-exports:ListExports",
+      "ce:StartCostAllocationTagBackfill",
+      "ce:UpdateCostAllocationTagsStatus",
+      "sustainability:GetCarbonFootprintSummary"
+    ]
+
+    resources = ["*"]
+  }
+
+}
+
+data "aws_iam_policy_document" "cost_optimization_hub_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "cost-optimization-hub:GetRecommendation",
+      "cost-optimization-hub:ListRecommendations",
+      "cost-optimization-hub:GetPreferences",
+      "cost-optimization-hub:UpdatePreferences",
+      "cost-optimization-hub:UpdateEnrollmentStatus",
+      "cost-optimization-hub:ListEnrollmentStatuses",
+      "organizations:EnableAWSServiceAccess"
+    ]
+    resources = ["*"]
+  }
+}
+
