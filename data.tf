@@ -1,27 +1,27 @@
 locals {
-  response_url              = var.C8R_API_ENDPOINT
-  account_id                = data.aws_caller_identity.current.account_id
-  region                    = data.aws_region.current.region
-  c8r_account_id            = split(",", var.data)[0]
-  external_id               = split(",", var.data)[1]
-  c8r_unique_id             = split(",", var.data)[2]
-  confirmation_token        = split(",", var.data)[3]
-  c8r_role_name             = split(",", var.data)[4]
-  iam_role_name             = split(",", var.data)[5]
-  iam_role_arn              = "arn:aws:iam::${local.account_id}:role/${local.iam_role_name}"
-  lambda_exection_role_name = split(",", var.data)[6]
-  lambda_function_name      = split(",", var.data)[7]
-  lambda_exection_role_arn  = "arn:aws:iam::${local.account_id}:role/${local.lambda_exection_role_name}"
-  lambda_function_arn       = "arn:aws:lambda:${local.region}:${local.account_id}:function:${local.lambda_function_name}"
-  report_name               = split(",", var.data)[8]
-  bucket_name               = split(",", var.data)[9]
-  execution_type            = split(",", var.data)[10]
-  unique_request_id         = split(",", var.data)[11]
-  data_export_cur2_name     = split(",", var.data)[12]
-  data_export_focus_name    = split(",", var.data)[13]
-  data_export_opthub_report = split(",", var.data)[14]
-  data_export_carbon_report = split(",", var.data)[15]
-  sub_account_role          = split(",", var.data)[16]
+  response_url               = var.C8R_API_ENDPOINT
+  account_id                 = data.aws_caller_identity.current.account_id
+  region                     = data.aws_region.current.region
+  c8r_account_id             = split(",", var.data)[0]
+  external_id                = split(",", var.data)[1]
+  c8r_unique_id              = split(",", var.data)[2]
+  confirmation_token         = split(",", var.data)[3]
+  c8r_role_name              = split(",", var.data)[4]
+  iam_role_name              = split(",", var.data)[5]
+  iam_role_arn               = "arn:aws:iam::${local.account_id}:role/${local.iam_role_name}"
+  lambda_execution_role_name = split(",", var.data)[6]
+  lambda_function_name       = split(",", var.data)[7]
+  lambda_execution_role_arn  = "arn:aws:iam::${local.account_id}:role/${local.lambda_execution_role_name}"
+  lambda_function_arn        = "arn:aws:lambda:${local.region}:${local.account_id}:function:${local.lambda_function_name}"
+  report_name                = split(",", var.data)[8]
+  bucket_name                = split(",", var.data)[9]
+  execution_type             = split(",", var.data)[10]
+  unique_request_id          = split(",", var.data)[11]
+  data_export_cur2_name      = split(",", var.data)[12]
+  data_export_focus_name     = split(",", var.data)[13]
+  data_export_opthub_report  = split(",", var.data)[14]
+  data_export_carbon_report  = split(",", var.data)[15]
+  sub_account_role           = split(",", var.data)[16]
 }
 
 data "aws_region" "current" {}
@@ -65,7 +65,7 @@ data "aws_iam_policy_document" "CloudchiprStack_read" {
       "iam:DeleteRole"
     ]
     resources = [
-      local.lambda_exection_role_arn
+      local.lambda_execution_role_arn
     ]
     effect = "Allow"
   }
@@ -358,17 +358,21 @@ data "aws_iam_policy_document" "CloudchiprStack_read" {
       "wellarchitected:Get*",
       "wellarchitected:List*",
       "backup:List*",
-      "config:*",
-      "sustainability:GetCarbonFootprintSummary"
+      "config:*"
     ]
     resources = ["*"]
     effect    = "Allow"
   }
 
   statement {
-    actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/${local.sub_account_role}", "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole", "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole"]
-    effect    = "Allow"
+    actions = ["sts:AssumeRole"]
+    resources = [
+      "arn:aws:iam::*:role/${local.sub_account_role}",
+      "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole",
+      "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole",
+      "arn:aws:iam::*:role/OrganizationAccountAccessRole"
+    ]
+    effect = "Allow"
   }
 
 }
@@ -380,7 +384,7 @@ data "aws_iam_policy_document" "CloudchiprStack_read-write" {
       "iam:DeleteRole"
     ]
     resources = [
-      local.lambda_exection_role_arn
+      local.lambda_execution_role_arn
     ]
     effect = "Allow"
   }
@@ -621,17 +625,21 @@ data "aws_iam_policy_document" "CloudchiprStack_read-write" {
       "wellarchitected:List*",
       "backup:List*",
       "backup:DeleteRecoveryPoint",
-      "config:*",
-      "sustainability:GetCarbonFootprintSummary"
+      "config:*"
     ]
     resources = ["*"]
     effect    = "Allow"
   }
 
   statement {
-    actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/${local.sub_account_role}", "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole", "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole"]
-    effect    = "Allow"
+    actions = ["sts:AssumeRole"]
+    resources = [
+      "arn:aws:iam::*:role/${local.sub_account_role}",
+      "arn:aws:iam::*:role/CloudchiprAccountReadAccessRole",
+      "arn:aws:iam::*:role/CloudchiprAccountReadWriteAccessRole",
+      "arn:aws:iam::*:role/OrganizationAccountAccessRole"
+    ]
+    effect = "Allow"
   }
 }
 
