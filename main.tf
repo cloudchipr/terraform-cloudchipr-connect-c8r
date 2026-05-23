@@ -14,6 +14,7 @@ locals {
   data_export_cur2_name     = split(",", var.data)[12]
   data_export_focus_name    = split(",", var.data)[13]
   data_export_opthub_report = split(",", var.data)[14]
+  data_export_carbon_report = split(",", var.data)[15]
   sub_account_role          = split(",", var.data)[16]
 }
 
@@ -348,7 +349,8 @@ data "aws_iam_policy_document" "CloudchiprStack_read" {
       "trustedadvisor:List*",
       "wellarchitected:Get*",
       "wellarchitected:List*",
-      "backup:List*"
+      "backup:List*",
+      "config:*"
     ]
     resources = ["*"]
     effect    = "Allow"
@@ -609,7 +611,8 @@ data "aws_iam_policy_document" "CloudchiprStack_read-write" {
       "wellarchitected:Get*",
       "wellarchitected:List*",
       "backup:List*",
-      "backup:DeleteRecoveryPoint"
+      "backup:DeleteRecoveryPoint",
+      "config:*"
     ]
     resources = ["*"]
     effect    = "Allow"
@@ -713,6 +716,7 @@ data "aws_iam_policy_document" "execution_role_policy" {
     actions = [
       "s3:CreateBucket",
       "s3:PutBucketPolicy",
+      "s3:PutBucketVersioning",
       "s3:ListBucket"
     ]
 
@@ -814,6 +818,7 @@ resource "aws_lambda_invocation" "lambda_execution_role_invoke" {
       "DataExportCUR2Name" : local.data_export_cur2_name
       "DataExportFOCUSName" : local.data_export_focus_name
       "DataExportCostOptimizationRecommendationName" : local.data_export_opthub_report
+      "DataExportCarbonEmissionsName" : local.data_export_carbon_report
       "SubAccountsAssumeRoleName" : local.sub_account_role
     }
   })
